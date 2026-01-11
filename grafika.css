@@ -1,0 +1,20 @@
+/* Płynne scrollowanie spisu treści */
+.tocify {
+  position: fixed;
+  height: 90vh;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+/* Responsywność */
+@media (max-width: 1200px) {
+  .tocify {
+    width: 25% !important;
+  }
+}
+
+@media (max-width: 992px) {
+  .tocify {
+    display: none;
+  }
+}

@@ -1,0 +1,597 @@
+---
+title: "Projekt"
+author: "Michał Kozioł"
+format:
+  html: 
+    theme: cosmo (HTML Theming – Quarto) 
+    toc: true
+    toc-location: left
+    toc-depth: 3 
+    smooth-scroll: true
+    self-contained: true
+    code-fold: true
+    warning: false
+    echo: false
+---
+
+# Wstęp
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyselect)
+library(tidyverse)
+library(lubridate)
+library(stringr)
+library(ggridges)
+options(scipen=999)
+
+library(tidyverse)
+library(viridis)
+library(gt)
+library(gtExtras)
+```
+
+Powiązania między warunkami pogodowymi a ilością oraz jakością zbiorów tymianku.
+
+Fajsławice to polskie zagłębie ziól, znajomość korelacji między pogodą a spodziewanymi zbiorami byłoby korzystne dla rolników i hurtowni.
+
+# Pytania badawcze i hipotezy
+
+**Pytanie 1**: Jak wilgotność w pogodzie wpływa na jakość i ilość tymianku?
+
+-   **Hipoteza 1.1**: Stan wody w najbliższej mierzonej rzece nie ma istotnego wpływu na uprawę tymianku.
+-   **Hipoteza 1.2**: Średnia wilgotność ma istotny wpływ na wilgoć mierzoną w tymianku oraz jego jakość.
+-   **Hipoteza 1.3**: Opady w miesiącach zbiorów tymianku negatywnie wpływają na jego jakość.
+-   **Hipoteza 1.4**: Opady w miesiącach wzrostu tymianku pozytywnie wpływają na jego ilość.
+
+**Pytanie 2**: Jak sytuacja przy gruncie wpływa na jakość i ilość tymianku?
+
+-   **Hipoteza 2.1**: Minimalna temperatura gruntu w miesiącach wzrostu tymianku ma wpływ na jego ilość w okresie zbiorów.
+-   **Hipoteza 2.2**: Ilość dni z zaobserwowaną rosą w miesiącach wzrostu tymianku ma wpływ na jego ilość w okresie zbiorów.
+
+**Pytanie 3**: Jak warunki atmosferyczne wpływają na jakość i ilość tymianku?
+
+-   **Hipoteza 3.1**: Duże nasłonecznienie w miesiącach zbiorów tymianku pozytywnie wpływają na jego jakość.
+-   **Hipoteza 3.2**: Duże nasłonecznienie w miesiącach siania tymianku negatywnie wpływają na jego ilość podczas zbiorów.
+-   **Hipoteza 3.3**: Ciśnienie atmosferyczne nie wpływa znacznie na uprawy tymianku.
+-   **Hipoteza 3.4**: Prędkość wiatru nie wpływa znacznie na uprawy tymianku.
+
+# Eksploracja zbioru danych
+
+## Dane Zielarskie
+
+Dane dotyczące zbiorów tymianku zostały podarowane przez firmę prowadzącą skup od lokalnych rolników.
+
+Podstawowe dane zielarskie zawierają datę przyjęcia ziół w hurtowni, ich wagę, wilgoć oraz stężenie olejków eterycznych. Olejki eteryczne są główną miarą jego jakości.
+
+```{r}
+Ziola <- read.csv("Ziola.csv")
+Ziola %>%
+summarise(
+  "Średnia waga" = round(mean(Waga)),
+  "Średnie olejki" = round(mean(Olej), digits = 2),
+  "Średnia wilgoć" = round(mean(Wilg), digits = 2)
+) %>%
+  gt() %>%
+  gt_theme_dot_matrix()
+```
+
+Do każdego rekordu jest także przypisany sezon. Tymianek sieje się w okolicach kwietnia a zbiera od połowy września do października/listopoada. Główny skup trwa od września do czerwca.
+
+```{r}
+###Obczajanie zbioru ziół
+Ziola <- read.csv("C://Users//Iza//OneDrive//Pulpit//Pogoda//Ziola.csv")
+Ziola %>%
+  group_by(Miesiac) %>%
+  summarise(Waga = sum(Waga)) %>%
+  ggplot(aes(x=Miesiac, y=Waga))+
+  scale_x_continuous(breaks=seq(0,12,by=1))+
+  geom_bar(fill="darkgreen", stat = "identity")+
+  labs(x="Miesiąc", y="Łączna waga przyjętego tymianku")+
+  theme_light()
+```
+
+W lipcu i sierpniu skupuje się o wiele mniej towaru, dlatego te miesiące nie będą uwzględniane. Szczegółowe, użyteczne dane zbierane są dopiero od połowy 2019 roku, więc nie będzie brany pod uwagę sezon 2018. Luki w informacjach o wartości olejków oraz wilgoci zostały wypełnione średnią wartością (2.2057 dla oleju i 6.2719 dla wilgoci). Dodatkowo, ze względu na specyfikacje danych metorologicznych, dane zielarskie zostały zgrupowane na podstawie miesiąca i roku.
+
+```{r}
+Ziola_Szczuple <- Ziola %>%
+  filter(Miesiac %in% c(1,2,3,4,5,6,9,10,11,12))
+Ziola_Szczuple <- Ziola_Szczuple %>%
+  filter(Rok_Prod != 18) %>%
+  group_by(DataKod) %>%
+  summarise(Rok = mean(Rok),
+            Miesiac = mean(Miesiac),
+            Sezon = max(Rok_Prod)+2000,
+            Sum_Waga = sum(Waga),
+            Srd_Waga = mean(Waga),
+            Wilg = mean(Wilg),
+            Olej = mean(Olej))
+
+# quantile(Ziola_Szczuple$Olej)
+
+Ziola_Szczuple <- Ziola_Szczuple %>%
+  mutate(
+    Jakosc = case_when(
+      Olej <= 2.123365 ~ 1,
+      Olej <= 2.198366 ~ 2,
+      Olej <= 2.304921 ~ 3,
+      Olej <= 2.637983 ~ 4
+    )
+  )
+```
+
+::: panel-tabset
+## Waga a Olej
+
+```{r}
+ggplot(Ziola_Szczuple, aes(x=Sum_Waga, y=Olej, color = as.character(Sezon))) +
+  geom_point()+
+  theme_light()+
+  labs(labs = "Sezon", x = "Łączna waga", y = "Stężenie olejków",
+       caption = paste0("Korelacja: ",
+                        round(cor(Ziola_Szczuple$Sum_Waga, Ziola_Szczuple$Olej,
+                                  use = "complete.obs"), digits = 3)))
+```
+
+## Waga a Wilgoć
+
+```{r}
+ggplot(Ziola_Szczuple, aes(x=Sum_Waga, y=Wilg, color = as.character(Sezon))) +
+  geom_point()+
+  theme_light()+
+  labs(labs = "Sezon", x = "Łączna waga", y = "Wilgoć",
+       caption = paste0("Korelacja: ",
+                        round(cor(Ziola_Szczuple$Sum_Waga, Ziola_Szczuple$Wilg,
+                                  use = "complete.obs"), digits = 3)))
+```
+
+## Wilgoć a Olej
+
+```{r}
+ggplot(Ziola_Szczuple, aes(x=Wilg, y=Olej, color = as.character(Sezon))) +
+  geom_point()+
+  theme_light()+
+  labs(labs = "Sezon", x = "Wilgoć", y = "Stężenie olejków",
+       caption = paste0("Korelacja: ",
+                        round(cor(Ziola_Szczuple$Wilg, Ziola_Szczuple$Olej,
+                                  use = "complete.obs"), digits = 3)))
+```
+:::
+
+## Dane Metorologiczne
+
+Dane pogodowe zostały zebrane z publicznych archiwów IMGW.
+
+W bezpośredniej okolicy uprawianego tymianku nie ma zbieranych danych pogodowych, więc zostały one zagregowane z kilku lokacji w woj. lubelskim.
+
+Pewne szczegółowe dane pogodowe, takie jak suma dni z zaobserwowaną rosą albo stan wody w najbliższej istotnej rzece kończą się na początku 2024 roku. Te bardziej ogólne, takie jak średnia temperatura czy ciśnienie atmosferyczne kończą się w połowie 2024.
+
+```{r}
+###Obrobienie zbioru pogody
+#Dane rzekowe
+Wieprz <- read.csv("C://Users//Iza//OneDrive//Pulpit//Pogoda//Wieprz_Combo.csv")
+Wieprz <- Wieprz %>%
+  filter(Ekst == 2) %>%
+  mutate(DataKod = paste(Rok, str_pad(Mies_Kalendarz, 2, pad = "0"), sep = "-")) %>%
+  select(-Ekst, -Rzeka)
+
+#Dane pogodowe
+Pogoda <- read.csv("C://Users//Iza//OneDrive//Pulpit//Pogoda//Pogoda_Combo.csv")
+
+Pogoda <- Pogoda |>
+  mutate(DataKod = paste(Rok, str_pad(Mies, 2, pad = "0"), sep = "-"))
+
+Pogoda <- Pogoda %>%
+  group_by(DataKod) %>% 
+  summarise(Rok = mean(Rok, na.rm=T),
+            Mies = mean(Mies, na.rm=T),
+            Sred_Temp = mean(Sred_Temp, na.rm=T),
+            Max_Temp = mean(Abs_Temp_Max, na.rm=T),
+            Min_Temp = mean(Abs_Temp_Min, na.rm=T),
+            Min_Temp_Grunt = mean(Min_Temp_Grunt, na.rm=T),
+            Srd_Wiatr = mean(Wiatr, na.rm=T),
+            Srd_Wilgot = mean(Sred_Wilgot, na.rm=T),
+            Srd_Cisn = mean(Sred_Cisn, na.rm=T),
+            Suma_Slonce = mean(Suma_Slonce, na.rm=T),
+            Zachmurz = mean(Zachmurz, na.rm=T),
+            Suma_Opad = mean(Suma_Opad, na.rm=T),
+            Maks_Dob_Sum_Opad = mean(Maks_Dob_Sum_Opad, na.rm=T),
+            Suma_Opadu_Dzien = mean(Suma_Opadu_Dzien, na.rm=T),
+            Suma_Opadu_Noc = mean(Suma_Opadu_Noc, na.rm=T),
+            Dni_Z_Deszcz = mean(Dni_Z_Deszcz, na.rm=T),
+            Dni_Wiatr = mean(Dni_Wiatr, na.rm=T),
+            Dni_Rosa = mean(Dni_Rosa, na.rm=T))
+```
+
+## Zakres Zbiorów
+
+Limitacje zbiorów metorologicznych oraz zielarskich oznaczają, że analizie poddane będą sezony uprawy 2019 - 2023 (czyli od września 2019 do czerwca 2024)
+
+```{r}
+
+#Połączenie danych
+Main <- left_join(
+  Ziola_Szczuple,
+  Pogoda %>% select(-Rok, -Mies),
+  by = "DataKod"
+)
+Main <- left_join(
+  Main,
+  Wieprz %>% select(-Rok, -Mies_Kalendarz),
+  by = "DataKod"
+)
+
+#Dane żeby były ładnie pokazane w miesiacach wzrostu i zbiorow
+Pogoda_Rosnie <- Main %>%
+  filter(Miesiac %in% c(5, 6, 7, 8)) %>%
+  group_by(Rok) %>%
+  summarise(Sezon = mean(Rok)+2000,
+            Sred_Temp = mean(Sred_Temp, na.rm=T),
+            Max_Temp = max(Max_Temp, na.rm=T),
+            Min_Temp = min(Min_Temp, na.rm=T),
+            Min_Temp_Grunt = min(Min_Temp_Grunt, na.rm=T),
+            Srd_Wiatr = mean(Srd_Wiatr, na.rm=T),
+            Srd_Wilgot = mean(Srd_Wilgot, na.rm=T),
+            Srd_Cisn = mean(Srd_Cisn, na.rm=T),
+            Suma_Slonce = sum(Suma_Slonce, na.rm=T),
+            Zachmurz = sum(Zachmurz, na.rm=T),
+            Suma_Opad = sum(Suma_Opad, na.rm=T),
+            Maks_Dob_Sum_Opad = max(Maks_Dob_Sum_Opad, na.rm=T),
+            Suma_Opadu_Dzien = sum(Suma_Opadu_Dzien, na.rm=T),
+            Suma_Opadu_Noc = sum(Suma_Opadu_Noc, na.rm=T),
+            Dni_Z_Deszcz = sum(Dni_Z_Deszcz, na.rm=T),
+            Dni_Wiatr = sum(Dni_Wiatr, na.rm=T),
+            Dni_Rosa = sum(Dni_Rosa, na.rm=T)) %>%
+  select(-Rok)
+Main_GdyRosnie <- left_join(Ziola_Szczuple, Pogoda_Rosnie, by = "Sezon")
+Main_GdyRosnie <- Main_GdyRosnie %>%
+  filter(Sezon %in% c(2019, 2020, 2021, 2022, 2023, 2024))
+
+Pogoda_Zbiory <- Main %>%
+  filter(Miesiac %in% c(9, 10, 11)) %>%
+  group_by(Rok) %>%
+  summarise(Sezon = mean(Rok)+2000,
+            Sred_Temp = mean(Sred_Temp, na.rm=T),
+            Max_Temp = max(Max_Temp, na.rm=T),
+            Min_Temp = min(Min_Temp, na.rm=T),
+            Min_Temp_Grunt = min(Min_Temp_Grunt, na.rm=T),
+            Srd_Wiatr = mean(Srd_Wiatr, na.rm=T),
+            Srd_Wilgot = mean(Srd_Wilgot, na.rm=T),
+            Srd_Cisn = mean(Srd_Cisn, na.rm=T),
+            Suma_Slonce = sum(Suma_Slonce, na.rm=T),
+            Zachmurz = sum(Zachmurz, na.rm=T),
+            Suma_Opad = sum(Suma_Opad, na.rm=T),
+            Maks_Dob_Sum_Opad = max(Maks_Dob_Sum_Opad, na.rm=T),
+            Suma_Opadu_Dzien = sum(Suma_Opadu_Dzien, na.rm=T),
+            Suma_Opadu_Noc = sum(Suma_Opadu_Noc, na.rm=T),
+            Dni_Z_Deszcz = sum(Dni_Z_Deszcz, na.rm=T),
+            Dni_Wiatr = sum(Dni_Wiatr, na.rm=T),
+            Dni_Rosa = sum(Dni_Rosa, na.rm=T)) %>%
+  select(-Rok)
+Main_GdyZbiory <- left_join(Ziola_Szczuple, Pogoda_Zbiory, by = "Sezon")
+Main_GdyZbiory <- Main_GdyZbiory %>%
+  filter(Sezon %in% c(2019, 2020, 2021, 2022, 2023, 2024))
+#rm(Pogoda_Rosnie, Pogoda_Zbiory, Wieprz, Ziola, Pogoda, Ziola_Szczuple)
+```
+
+# Pytanie 1
+
+"Jak wilgotność w pogodzie wpływa na jakość i ilość tymianku?"
+
+## Odpowiedź na hipotezę 1.1
+
+"Stan wody w najbliższej mierzonej rzece nie ma istotnego wpływu na uprawę tymianku"
+
+::: panel-tabset
+## Stan wody a olejki
+
+```{r}
+ggplot(Main, aes(x=Stan_Wody, y=Olej, color = as.character(Sezon))) + 
+  geom_smooth(method=lm , color="darkgreen", se=FALSE) +
+  geom_point()+
+  theme_light()+
+  labs(x="Stan wody w najbliższej istotnej rzece [w cm]",
+       y="Stężenie olejków",
+       color = "Sezon",
+       caption = paste0("Korelacja: ",
+                        round(cor(Main$Stan_Wody, Main$Olej,
+                                  use = "complete.obs"), digits = 3)))
+
+```
+
+## Stan wody a wilgotność
+
+```{r}
+ggplot(Main, aes(x=Stan_Wody, y=Wilg, color = as.character(Sezon))) + 
+  geom_smooth(method=lm , color="darkgreen", se=FALSE) +
+  geom_point()+
+  theme_light()+
+  labs(x="Stan wody w najbliższej istotnej rzece [w cm]",
+       y="Stężenie olejków",
+       color = "Sezon",
+       caption = paste0("Korelacja: ",
+                        round(cor(Main$Stan_Wody, Main$Wilg,
+                                  use = "complete.obs"), digits = 3)))
+```
+:::
+
+Jak można się spodziewać, z wynikiem -0.3 i -0.1 nie ma istotnej korelacji między stanem najbliżej badanej rzeki a skupowanym tymiankiem.
+
+## Odpowiedź na hipotezę 1.2
+
+"Średnia wilgotność ma istotny wpływ na wilgoć mierzoną w tymianku oraz jego jakość"
+
+::: panel-tabset
+## Wilgotność a wilgoć
+
+```{r}
+ggplot(Main, aes(x=Srd_Wilgot, y=Wilg, color = as.character(Sezon))) + 
+  geom_smooth(method=lm , color="darkgreen", se=FALSE) +
+  geom_point()+
+  theme_light()+
+  labs(x="Średnia wilgotność względna [w %]",
+       y="Wilgoć ziół",
+       color = "Sezon",
+       caption = paste0("Korelacja: ",
+                        round(cor(Main$Srd_Wilgot, Main$Wilg,
+                                  use = "complete.obs"), digits = 3)))
+```
+
+## Wilgotność a olejki
+
+```{r}
+ggplot(Main, aes(x=Srd_Wilgot, y=Olej, color = as.character(Sezon))) + 
+  geom_smooth(method=lm , color="darkgreen", se=FALSE) +
+  geom_point()+
+  theme_light()+
+  labs(x="Średnia wilgotność względna [w %]",
+       y="Stężenie olejków",
+       color = "Sezon",
+       caption = paste0("Korelacja: ",
+                        round(cor(Main$Srd_Wilgot, Main$Olej,
+                                  use = "complete.obs"), digits = 3)))
+```
+:::
+
+Zaskakująco, jest nietrywialna korelacja między wysoką wilgotnością a suchymi ziołami.
+
+Odpowiedź kryje się w charakterze badanych danych. Wilgoć w ziołach mierzona jest po suszeniu. Im większa wilgotność względna wymaga dużo większego suszenia więc produkuje także suchsze zioła.
+
+## Odpowiedź na hipotezę 1.3
+
+"Opady w miesiącach zbiorów tymianku negatywnie wpływają na jego jakość"
+
+::: panel-tabset
+## Ogólne
+
+```{r}
+MainTMP <- Main_GdyZbiory %>%
+  filter(Olej < 2.4, Suma_Opad > 0)
+MainTMP %>%
+ggplot(aes(x=Suma_Opad, y=Olej, color = as.character(Sezon))) + 
+  geom_smooth(method=lm , color="darkgreen", se=FALSE) +
+  geom_point()+
+  theme_light()+
+  labs(x="Suma opadów [w mm]",
+       y="Stężenie olejków",
+       color = "Sezon",
+       caption = paste0("Korelacja: ",
+                        round(cor(MainTMP$Suma_Opad, MainTMP$Olej,
+                                  use = "complete.obs"), digits = 3)))
+rm(MainTMP)
+```
+
+## Bliżej zbiorów
+
+```{r}
+MainTMP <- Main_GdyZbiory %>%
+  filter(Olej < 2.4, Suma_Opad > 0, Miesiac %in% c(9,10,11, 12))
+
+MainTMP %>%
+ggplot(aes(x=Suma_Opad, y=Olej, color = as.character(Sezon))) + 
+  geom_smooth(method=lm , color="darkgreen", se=FALSE) +
+  geom_point()+
+  theme_light()+
+  labs(x="Suma opadów [w mm]",
+       y="Jakość ziół [wskaźnik olejków]",
+       color = "Sezon",
+       caption = paste0("Korelacja: ",
+                        round(cor(MainTMP$Suma_Opad, MainTMP$Olej,
+                                  use = "complete.obs"), digits = 3)))
+rm(MainTMP)
+```
+:::
+
+Jak widać nie ma istotnej korelacji pomiędzy opadami w miesiącach zbiorów a jego jakością. Korelacja jest jeszcze mniejsza gdy wezmiemy pod uwagę tylko zioła przyjęte blisko zbiorów.
+
+## Odpowiedź na hipotezę 1.4
+
+"Opady w miesiącach wzrostu tymianku pozytywnie wpływają na jego ilość"
+
+```{r}
+ggplot(Main_GdyRosnie, aes(x=Suma_Opad, y=Sum_Waga, color = as.character(Sezon))) + 
+  geom_smooth(method=lm , color="darkgreen", se=FALSE) +
+  geom_point()+
+  theme_light()+
+  labs(x="Suma opadów [w mm]",
+       y="Waga przyjętych zioł [kg]",
+       color = "Sezon",
+       caption = paste0("Korelacja: ",
+                        round(cor(Main_GdyRosnie$Suma_Opad, Main_GdyRosnie$Sum_Waga,
+                                  use = "complete.obs"), digits = 3)))
+```
+
+Istnieje mała negatywna korelacja pomiędzy dużymi opadami w okresie wzrostu a ilości przyjętego tymianku.
+
+# Pytanie 2
+
+"Jak sytuacja przy gruncie wpływa na jakość i ilość tymianku?"
+
+## Odpowiedź na hipotezę 2.1
+
+"Minimalna temperatura gruntu w miesiącach wzrostu tymianku ma wpływ na jego ilość w okresie zbiorów."
+
+```{r}
+ggplot(Main_GdyRosnie, aes(x=Min_Temp_Grunt, y=Sum_Waga)) + 
+  geom_smooth(method=lm , color="green", se=FALSE) +
+  geom_point(color = "darkgreen")+
+  theme_light()+
+  labs(x="Minimalna temperatura gruntu [w C]",
+       y="Waga przyjętych zioł [kg]")
+```
+
+Brak korelacji. Minimalne temperatury w miesiącach wzrostu są zadziwiająco niskie jednak są to oficjalne dane IMGW więc im ufam. Przymrozki w kwietniu też się zdarzają.
+
+## Odpowiedź na hipotezę 2.2
+
+"Ilość dni z zaobserwowaną rosą w pierwszych miesiącach wzrostu tymianku ma wpływ na jego ilość w okresie zbiorów."
+
+```{r}
+Main_GdyRosnie %>%
+  filter(Dni_Rosa != 0) %>%
+ggplot(aes(x=Dni_Rosa, y=Sum_Waga)) + 
+  geom_smooth(method=lm , color="green", se=FALSE) +
+  geom_point(color = "darkgreen")+
+  theme_light()+
+  labs(x="Liczba dni z zaobserwowaną rosą",
+       y="Waga przyjętych zioł [kg]")
+```
+
+Dziury w specyficznych danych pogodowych usuwają dwa sezony upraw z analizy, jednak w tym co zostało widać pozytywną korelacje między zaobserwowaną rosą a ilością ziół.
+
+# Pytanie 3
+
+"Jak warunki atmosferyczne wpływają na jakość i ilość tymianku?"
+
+## Odpowiedź na hipotezę 3.1
+
+"Duże nasłonecznienie w miesiącach zbiorów tymianku pozytywnie wpływają na jego jakość."
+
+```{r}
+Main_GdyZbiory %>%
+  filter(Suma_Slonce != 0) %>%
+ggplot(aes(x=Suma_Slonce, y=Olej)) + 
+  geom_smooth(method=lm , color="green", se=FALSE) +
+  geom_point(color = "darkgreen")+
+  theme_light()+
+  labs(x="Suma usłonecznienia [w godz.]",
+       y="Jakość ziół [wskaźnik olejków]")
+```
+
+Faktycznie wygląda na to że duże nasłonecznienie ma pozytywny wpływ na jego jakość.
+
+## Odpowiedź na hipotezę 3.2
+
+"Duże nasłonecznienie w miesiącach siania tymianku negatywnie wpływają na jego ilość."
+
+```{r}
+Main_GdyRosnie %>%
+  filter(Suma_Slonce != 0) %>%
+  ggplot(aes(x=Suma_Slonce, y=Sum_Waga)) + 
+  geom_smooth(method=lm , color="green", se=FALSE) +
+  geom_point(color = "darkgreen")+
+  theme_light()+
+  labs(x="Suma usłonecznienia [w godz.]",
+       y="Waga przyjętych zioł [kg]")
+```
+
+Nasłonecznienie w miesiacach siania zwiększa jego ilość.
+
+## Odpowiedź na hipotezę 3.3
+
+"Ciśnienie atmosferyczne nie wpływa znacznie na uprawy tymianku."
+
+```{r}
+ggplot(Main, aes(x=Srd_Cisn, y=Olej)) + 
+  geom_smooth(method=lm , color="green", se=FALSE) +
+  geom_point(color = "darkgreen")+
+  theme_light()+
+  labs(x="Średnie ciśnienie atmosferyczne",
+       y="Jakość ziół [wskaźnik olejków]",
+       title="Korelacja w momencie przyjęcia ziół")
+
+Main_GdyRosnie %>%
+  filter(Olej<2.4) %>%
+ggplot(aes(x=Srd_Cisn, y=Olej))+
+  geom_smooth(method=lm , color="green", se=FALSE) +
+  geom_point(color = "darkgreen")+
+  theme_light()+
+  labs(x="Średnie ciśnienie atmosferyczne",
+       y="Jakość ziół [wskaźnik olejków]",
+       title="Korelacja w miesiącach rośnięcia ziół")
+
+Main_GdyZbiory %>%
+  filter(Olej<2.4) %>%
+ggplot(aes(x=Srd_Cisn, y=Olej))+
+  geom_smooth(method=lm , color="green", se=FALSE) +
+  geom_point(color = "darkgreen")+
+  theme_light()+
+  labs(x="Średnie ciśnienie atmosferyczne",
+       y="Jakość ziół [wskaźnik olejków]",
+       title="Korelacja w miesiącach zbiorów ziół")
+```
+
+Najsilniej widać negatywną korelacje w ostatnim wykresie. Wygląda na to że wysokie średnie ciśnienie w miesiącach zbiorów ziół negatywnie wpływa na ich jakość.
+
+### Odpowiedź na hipotezę 3.4
+
+"Prędkość wiatru nie wpływa znacznie na uprawy tymianku."
+
+```{r}
+ggplot(Main, aes(x=Srd_Wiatr, y=Olej)) + 
+  geom_smooth(method=lm , color="green", se=FALSE) +
+  geom_point(color = "darkgreen")+
+  theme_light()+
+  labs(x="Średni wiatr [w m/s]",
+       y="Jakość ziół [wskaźnik olejków]",
+       title="Korelacja w momencie przyjęcia ziół")
+
+Main_GdyRosnie %>%
+  filter(Olej<2.4) %>%
+ggplot(aes(x=Srd_Wiatr, y=Olej)) + 
+  geom_smooth(method=lm , color="green", se=FALSE) +
+  geom_point(color = "darkgreen")+
+  theme_light()+
+  labs(x="Średni wiatr [w m/s]",
+       y="Jakość ziół [wskaźnik olejków]",
+       title="Korelacja w miesiącach rośnięcia ziół")
+
+Main_GdyZbiory %>%
+  filter(Olej<2.4) %>%
+ggplot(aes(x=Srd_Wiatr, y=Olej)) + 
+  geom_smooth(method=lm , color="green", se=FALSE) +
+  geom_point(color = "darkgreen")+
+  theme_light()+
+  labs(x="Średni wiatr [w m/s]",
+       y="Jakość ziół [wskaźnik olejków]",
+       title="Korelacja w miesiącach zbiorów ziół")
+```
+
+Lekką negatywną korelacje, oraz silną pozytywną między jakością ziół a prędkością wiatru widać najmocniej odpowiednio patrząc na miesiące wzrostu, oraz zbioru ziół.
+
+Jest to całkiem ciekawe bo tymianek jest całkiem niską rośliną, trudno powiedzieć czemu taka korelacja może występować.
+
+### Słabości analizy
+
+Analiza jest okrojona bo nie znam testow statystycznych i metod progrostycznych
+
+# Podsumowanie
+
+przedstawiamy najważniejszy insight z tej analizy puenta projektu jakas żeby można było zapamietac chociaż tyle na bazie tego co zrobiliśmy co moznaby zrobić w przyszłości
+
+notatki
+
+Skrocic te naglowski
+
+Średnie dane w każdym sezonie żeby można porównać powiedzieć że jest poniżej / powyżej średniej
+
+Z tymi danymi zestackowanymi zrobic boxplot (x to jakosc najlepiej jakos skategoryzowana) ten boxplot interaktywny taki że można sobie przekliknąć z roku na rok.
+
+Generalnie można też dać wszędzie kolor zależny od roku.
+
+Obliczuć współczyniik korelacji między np nasłonecznieneiem w sezonie i srednia jakoscią w sezonie. Istotność korelacji badamy p-mat (ggcoreplot)
+
+Jak zima wpływa na nadchodzący sezon?
+
+Co ma największy wpływ na jakość?
