@@ -1,0 +1,13 @@
+
+Nazwa stacji                                         30
+Rok                                                   4
+Miesiąc                                               2
+Średnie miesięczne zachmurzenie ogólne [oktanty]      6/1
+Średnia miesieczna prędkość wiatru [m/s]              6/1
+Średnia miesięczna temperatura [°C]                   5/1
+Średnia miesięczne ciśnienie pary wodnej [hPa]        5/1
+Średnia miesięczna wilgotność względna [%]            8/1
+Średnie miesięczne ciśnienie na poziomie stacji [hPa] 7/1
+Średnie miesięczne ciśnienie na pozimie morza [hPa]   7/1
+Suma opadu dzień [mm]                                 8/1
+Suma opadu noc   [mm]                                 8/1

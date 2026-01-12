@@ -8,7 +8,7 @@ library(stringr)
 
 #####Przyjęcie i obróbka danych ogólnych
 
-ZiolaOgol <- read.csv("C://Users//Iza//OneDrive//Pulpit//Pogoda//ZiolaCalyOgol.csv")
+ZiolaOgol <- read.csv("D://Pulpit//Pogoda//ZiolaCalyOgol.csv")
 ZiolaOgol$Data <- as.Date.character(ZiolaOgol$Data, tryFormats = c("%d.%m.%Y"))
 ZiolaOgol$Kilo <- chartr(",", ".", ZiolaOgol$Kilo)
 ZiolaOgol$Kilo <- as.numeric(ZiolaOgol$Kilo)
@@ -22,7 +22,7 @@ ZiolaOgol <- ZiolaOgol |>
 
 ######Przyjęcie i obróbka danych szczególnych
 
-ZiolaSzczeg <- read.csv("C://Users//Iza//OneDrive//Pulpit//Pogoda//Prawie udane podejscie//ZiolaCalySzczegol.csv")
+ZiolaSzczeg <- read.csv("D://Pulpit//Pogoda//ZiolaCalySzczegol.csv")
 ZiolaSzczeg$Rok <- substr(ZiolaSzczeg$Kod, 2, 3)
 ZiolaSzczeg$Miesiac <- substr(ZiolaSzczeg$Kod, 4, 5)
 ZiolaSzczeg$Dzien <- substr(ZiolaSzczeg$Kod, 6, 7)
@@ -74,7 +74,7 @@ ZiolaSzczeg$Waga_Pz[ZiolaSzczeg$Waga_Pz == 0] <- ZiolaSzczeg$Waga
 
 ##################Ogarniecie danych rzekowych
 
-Wieprz <- read.csv("C://Users//Iza//OneDrive//Pulpit//Pogoda//Wieprz_Combo.csv")
+Wieprz <- read.csv("D://Pulpit//Pogoda//Wieprz_Combo.csv")
 Wieprz <- Wieprz %>%
   filter(Ekst == 2) %>%
   mutate(DataKod = paste(Rok, str_pad(Mies_Kalendarz, 2, pad = "0"), sep = "-")) %>%
@@ -83,7 +83,7 @@ Wieprz <- Wieprz %>%
 
 ###################Ogarniecie danych pogodowych
 
-Pogoda <- read.csv("C://Users//Iza//OneDrive//Pulpit//Pogoda//Pogoda_Combo.csv")
+Pogoda <- read.csv("D://Pulpit//Pogoda//Pogoda_Combo.csv")
 
 Pogoda <- Pogoda |>
   mutate(DataKod = paste(Rok, str_pad(Mies, 2, pad = "0"), sep = "-"))
@@ -246,115 +246,4 @@ ggplot(Main, aes(x=Srd_Wilgot, y=Wilg)) +
   geom_smooth(method=lm , color="red", se=FALSE) +
   geom_point()
 #czemu wilgoc spada gdy wilgotnosc rosnie? moze dlatego ze miara wilgoci tymianku jest po suszeniu i ta miara jest mierna do tego zestawienia czy cos
-
-###Opady w miesiącach zbiorów tymianku negatywnie wpływają na jego jakość
-#manualnie zrobilem tabelke z domniemanym rokiem zasadzenia/zbiorow tymianku 
-Main2 <- read.csv("C://Users//Iza//OneDrive//Pulpit//Pogoda//Main2.csv")
-
-Robocz <- Main2 %>%
-  group_by(DataKod)%>%
-  summarise(Suma_Opad = mean(Suma_Opad),
-            Rok = mean(Rok),
-            Miesiac = mean(Miesiac))%>%
-  select(DataKod, Rok, Miesiac, Suma_Opad)
-
-Robocz2 <- Robocz %>%
-  filter(Miesiac %in% c(9, 10, 11)) %>%
-  group_by(Rok) %>%
-  summarise(Suma_Opad_Zbiory = sum(Suma_Opad)) %>%
-  select(Rok_Prod = Rok, Suma_Opad_Zbiory)
-Robocz2 <- rbind(c(18, NA), Robocz2)
-
-Main2 <- Robocz2 %>%
-  left_join(Main2, by = "Rok_Prod")
-
-ggplot(Main2, aes(x=Suma_Opad_Zbiory, y=Olej)) +
-  geom_point()
-
-mean(Robocz2$Suma_Opad_Zbiory, na.rm = TRUE)
-
-install.packages("ggridges")
-library(ggridges)
-
-ggplot(Main2, aes(x = Olej, y = as.character(Suma_Opad_Zbiory), fill = as.character(Suma_Opad_Zbiory))) +
-  geom_density_ridges()
-#gowno widac ale nwm mczy to nie jest zle zobrazowanie
-
-Robocz3 <- Main2 %>%
-  group_by(Rok_Prod) %>%
-  summarise(Suma_Opad_Zbiory = mean(Suma_Opad_Zbiory, na.rm = TRUE),
-            Sred_Olej = mean(Olej, na.rm = TRUE)) %>%
-  select(Rok_Prod, Suma_Opad_Zbiory, Sred_Olej) %>%
-  sort_by(Robocz3$Suma_Opad_Zbiory)
-#chyba nie ma korelacji w takim razei idk
-#a jeszcze wezme to samo sprobuje z iloscia deszczowych dni moze
-Roboczl <- Main2 %>%
-  group_by(DataKod)%>%
-  summarise(Dni_Z_Deszcz = mean(Dni_Z_Deszcz),
-            Rok = mean(Rok),
-            Miesiac = mean(Miesiac))%>%
-  select(DataKod, Rok, Miesiac, Dni_Z_Deszcz)
-
-Roboczl2 <- Roboczl %>%
-  filter(Miesiac %in% c(9, 10, 11)) %>%
-  group_by(Rok) %>%
-  summarise(Suma_Deszcz_Dni = sum(Dni_Z_Deszcz)) %>%
-  select(Rok_Prod = Rok, Suma_Deszcz_Dni)
-Roboczl2 <- rbind(c(18, NA), Roboczl2)
-
-Main2 <- Roboczl2 %>%
-  left_join(Main2, by = "Rok_Prod")
-
-ggplot(Main2, aes(x=Suma_Deszcz_Dni, y=Olej)) +
-  geom_point()
-
-ggplot(Main2, aes(x = Olej, y = as.character(Suma_Deszcz_Dni), fill = as.character(Suma_Deszcz_Dni))) +
-  geom_density_ridges()
-#dupalol
-
-###H4 Opady w miesiącach wzrostu tymianku pozytywnie wpływają na jego ilość
-#robie to samo ale z innymi danymi i huj
-
-RoboczGG <- Robocz %>%
-  filter(Miesiac %in% c(6, 7, 8)) %>%
-  group_by(Rok) %>%
-  summarise(Suma_Opad_Rosn = sum(Suma_Opad)) %>%
-  select(Rok_Prod = Rok, Suma_Opad_Rosn)
-RoboczGG <- rbind(c(18, NA), RoboczGG)
-
-Main2 <- RoboczGG %>%
-  left_join(Main2, by = "Rok_Prod")
-
-ggplot(Main2, aes(x=Suma_Opad_Rosn, y=Waga)) +
-  geom_point()
-#No i git najwyrazniej najlepiej jest jak pada tak troche, nie za duzo nie za malo
-
-###H1 Minimalna temperatura gruntu w pierwszych miesiącach wzrostu tymianku ma wpływ na jego ilość w okresie zbiorów.
-Robocz <- Main2 %>%
-  group_by(DataKod)%>%
-  summarise(Min_Temp_Grunt = min(Min_Temp_Grunt, na.rm = TRUE),
-            Rok = mean(Rok),
-            Miesiac = mean(Miesiac))%>%
-  select(DataKod, Rok, Miesiac, Min_Temp_Grunt)
-
-RoboczES <- Robocz %>%
-  filter(Miesiac %in% c(6, 7)) %>%
-  group_by(Rok) %>%
-  summarise(Min_Temp_Przy_Rosn = min(Min_Temp_Grunt, na.rm = TRUE)) %>%
-  select(Rok_Prod = Rok, Min_Temp_Przy_Rosn)
-RoboczES <- RoboczES %>%
-  filter(Rok_Prod != 25)
-
-Main2 <- RoboczES %>%
-  left_join(Main2, by = "Rok_Prod")
-
-ggplot(Main2, aes(x=Suma_Opad_Rosn, y=Waga)) +
-  geom_point()
-
-
-
-
-
-
-
 

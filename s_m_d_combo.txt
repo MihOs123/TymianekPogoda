@@ -1,0 +1,33 @@
+W zamościu nie ma pół danych. Pół danych też nie ma od grudnia 2021
+
+Nazwa stacji                                     30
+Rok                                               4
+Miesiąc                                           2
+Absolutna temperatura maksymalna [°C]             5/1
+Średnia temperatura maksymalna [°C]               6/1
+Absolutna temperatura minimalna [°C]              5/1
+Średnia temperatura minimalna [°C]                6/1
+Średnia temperatura miesięczna [°C]               6/1
+Minimalna temperatura przy gruncie [°C]           5/1
+Miesięczna suma opadów [mm]                       7/1
+Maksymalna dobowa suma opadów  [mm]               6/1
+Miesięczna suma usłonecznienia  [godziny]         7/1
+Maksymalna wysokość pokrywy śnieżnej [cm]         4
+Liczba dni z pokrywą śnieżną                      3
+Liczba dni z opadem deszczu                       3
+Liczba dni z opadem śniegu                        3
+Liczba dni z opadem deszczu ze śniegiem           3
+Liczba dni z gradem                               3
+Liczba dni z mgłą                                 3
+Liczba dni z zamgleniem                           3
+Liczba dni z sadzią                               3
+Liczba dni z gołoledzią                           3
+Liczba dni z zamiecią śnieżną niską               3
+Liczba dni z zamiecią śnieżną wysoką              3
+Liczba dni ze zmętnieniem                         3
+Liczba dni z wiatrem >= 10m/s                     3
+Liczba dni z wiatrem >15m/s                       3
+Liczba dni z burzą                                3
+Liczba dni z rosą                                 3
+Liczba dni ze szronem                             3
+

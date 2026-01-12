@@ -1,0 +1,10 @@
+Nazwa rzeki/jeziora
+Stan wody [cm]
+Przepływ [m^3/s]
+Miesiąc kalendarzowy
+
+
+Wskaźnik ekstremum może przyjmować następujące wartości:
+1 - minimum,
+2 - wartość średnia,
+3 - maksimum.
